@@ -1,0 +1,198 @@
+\documentclass[]{article}
+\usepackage{lmodern}
+\usepackage{amssymb,amsmath}
+\usepackage{ifxetex,ifluatex}
+\usepackage{fixltx2e} % provides \textsubscript
+\ifnum 0\ifxetex 1\fi\ifluatex 1\fi=0 % if pdftex
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+\else % if luatex or xelatex
+  \ifxetex
+    \usepackage{mathspec}
+  \else
+    \usepackage{fontspec}
+  \fi
+  \defaultfontfeatures{Ligatures=TeX,Scale=MatchLowercase}
+\fi
+% use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+% use microtype if available
+\IfFileExists{microtype.sty}{%
+\usepackage{microtype}
+\UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\usepackage[margin=1in]{geometry}
+\usepackage{hyperref}
+\hypersetup{unicode=true,
+            pdftitle={SSBU: Data Science Tierlist},
+            pdfauthor={Clurkastas},
+            pdfborder={0 0 0},
+            breaklinks=true}
+\urlstyle{same}  % don't use monospace font for urls
+\usepackage{longtable,booktabs}
+\usepackage{graphicx,grffile}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+\IfFileExists{parskip.sty}{%
+\usepackage{parskip}
+}{% else
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt plus 2pt minus 1pt}
+}
+\setlength{\emergencystretch}{3em}  % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{5}
+% Redefines (sub)paragraphs to behave more like sections
+\ifx\paragraph\undefined\else
+\let\oldparagraph\paragraph
+\renewcommand{\paragraph}[1]{\oldparagraph{#1}\mbox{}}
+\fi
+\ifx\subparagraph\undefined\else
+\let\oldsubparagraph\subparagraph
+\renewcommand{\subparagraph}[1]{\oldsubparagraph{#1}\mbox{}}
+\fi
+
+%%% Use protect on footnotes to avoid problems with footnotes in titles
+\let\rmarkdownfootnote\footnote%
+\def\footnote{\protect\rmarkdownfootnote}
+
+%%% Change title format to be more compact
+\usepackage{titling}
+
+% Create subtitle command for use in maketitle
+\providecommand{\subtitle}[1]{
+  \posttitle{
+    \begin{center}\large#1\end{center}
+    }
+}
+
+\setlength{\droptitle}{-2em}
+
+  \title{SSBU: Data Science Tierlist}
+    \pretitle{\vspace{\droptitle}\centering\huge}
+  \posttitle{\par}
+    \author{Clurkastas}
+    \preauthor{\centering\large\emph}
+  \postauthor{\par}
+      \predate{\centering\large\emph}
+  \postdate{\par}
+    \date{6 10 2019}
+
+
+\begin{document}
+\maketitle
+
+\hypertarget{data-gathering}{%
+\section{Data Gathering}\label{data-gathering}}
+
+To gather information for my tier list, I used the RPackage
+``RSelenium''. It gathered 479 video titles from
+\href{\%22https://www.youtube.com/results?search_query=ssbu+grand+finals\&sp=CAI\%253D\%22}{this
+Youtube link}. The link was created by searching for ``SSBU grand
+finals'' ordered by date.
+
+After that I had to clean out the data. For this I searched for all
+fighter names inside the video titles. It was important to e.g.~first
+search for ``Dr.~Mario'', deleting this part of the string, and then
+search for ``Mario'', because otherwise the data would not have been
+correct. Additionally, I needed to search for multiple variants of a
+name, e.g.~``ZSS'' and ``Zero Suit Samus'' or ``Olimar'' and ``Alph''.
+
+\hypertarget{analysis}{%
+\section{Analysis}\label{analysis}}
+
+Eventually, I got a sum of observations for each character in SSBU. I
+added the tier list information from
+\href{https://smash-tier-list.com/ultimate}{ZeRo's tier list} to compare
+my results to external information. From all the information gathered I
+created some interesting charts:
+
+\hypertarget{chart-with-zeros-tier-list-and-amount-of-mentioning-in-grand-final-videos}{%
+\subsection{Chart with ZeRo's Tier list and amount of mentioning in
+grand final
+videos}\label{chart-with-zeros-tier-list-and-amount-of-mentioning-in-grand-final-videos}}
+
+\includegraphics{SSBU-DataScience-Tierlist_files/figure-latex/analysis 01-1.pdf}
+The correlation here is 0.46
+
+\hypertarget{same-chart-but-log10amount}{%
+\subsection{Same chart but
+log10(amount)}\label{same-chart-but-log10amount}}
+
+\includegraphics{SSBU-DataScience-Tierlist_files/figure-latex/analysis 02-1.pdf}
+The correlation here is 0.48
+
+\hypertarget{my-own-tier-list-compared-with-zeros}{%
+\subsection{My own tier list (compared with
+ZeRo's)}\label{my-own-tier-list-compared-with-zeros}}
+
+Bases on the amounts of mentioning I made some tier groups myself. For
+this I just had to decide on the cut-off values between the tier list
+levels.
+
+\includegraphics{SSBU-DataScience-Tierlist_files/figure-latex/analysis 03-1.pdf}
+
+In the chart you can see ZeRo's tier list on the x-axis and my tier list
+on the y-axis. Red dots are values of total overlap. Both tier lists
+agree totally on the following fighters: Fox, Wolf, Inkling, Lucina,
+Pikachu, Greninja, ZSS, Cloud, Ike, Link, Shulk, Chrom, Yoshi, Young
+Link, Pokemon Trainer, Robin, Bayonetta, Sheik, Kirby, Ryu, Samus,
+Captain Falcon, Wii Fit, Donkey Kong, Zelda, Meta Knight, Jigglypuff,
+Isabelle, Simon, Richter. The correlation is 0.4580111
+
+\hypertarget{more}{%
+\subsection{more}\label{more}}
+
+\includegraphics{SSBU-DataScience-Tierlist_files/figure-latex/analysis 04-1.pdf}
+
+\hypertarget{the-data-science-tier-list}{%
+\section{The Data Science Tier List}\label{the-data-science-tier-list}}
+
+As information in the end, I want to give you the herewith created tier
+list:
+
+\begin{longtable}[]{@{}lllll@{}}
+\toprule
+\endhead
+\begin{minipage}[t]{0.14\columnwidth}\raggedright
+S\strut
+\end{minipage} & \begin{minipage}[t]{0.21\columnwidth}\raggedright
+A\strut
+\end{minipage} & \begin{minipage}[t]{0.25\columnwidth}\raggedright
+B\strut
+\end{minipage} & \begin{minipage}[t]{0.09\columnwidth}\raggedright
+C\strut
+\end{minipage} & \begin{minipage}[t]{0.17\columnwidth}\raggedright
+D\strut
+\end{minipage}\tabularnewline
+\begin{minipage}[t]{0.14\columnwidth}\raggedright
+Ness, Fox, Wolf, Snake, Bowser Jr., Palutena, Inkling, Mario, ROB,
+Falco, Roy, Lucina, Pikachu, Ken, Greninja\strut
+\end{minipage} & \begin{minipage}[t]{0.21\columnwidth}\raggedright
+Peach, ZSS, Cloud, Wario, Olimar, Bowser, Luigi, Ike, Game and Watch,
+Link, Shulk, Ridley, Chrom, Yoshi, Diddy Kong, Young Link, Pichu,
+Pokemon Trainer, Incineroar\strut
+\end{minipage} & \begin{minipage}[t]{0.25\columnwidth}\raggedright
+Robin, Mega Man, Bayonetta, Sheik, Kirby, Sonic, Ryu, Samus, Captain
+Falcon, Lucas, Wii Fit, Little Mac, Donkey Kong, Zelda, Meta Knight,
+Jigglypuff, Marth, Pac-Man, Daisy, Isabelle, Simon, Richter\strut
+\end{minipage} & \begin{minipage}[t]{0.09\columnwidth}\raggedright
+Rosalina, Ganondorf, Mewtwo, Dr.~Mario, Ice Climbers, Villager, Mii
+Gunner\strut
+\end{minipage} & \begin{minipage}[t]{0.17\columnwidth}\raggedright
+Toon Link, Lucario, Pit, Duck Hunt, Piranha Plant, King K. Rool, Dark
+Samus, King Dedede, Corrin, Dark Pit, Mii Brawler, Mii
+Swordfighter\strut
+\end{minipage}\tabularnewline
+\bottomrule
+\end{longtable}
+
+
+\end{document}

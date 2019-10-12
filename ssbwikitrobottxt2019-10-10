@@ -1,0 +1,8 @@
+"","X1"
+"1","User-agent: *"
+"2","Disallow: /index.php?"
+"3","Disallow: /Special:"
+"4","User-agent: Mediapartners-Google"
+"5","Disallow:"
+"6","Source: https://www.ssbwiki.com/robots.txt"
+"7","2019-10-10"
