@@ -43,6 +43,14 @@ rawfighter_list <- as.list(unlist(rawfighter_list))
 #remove everything except unnecessary data from workspace
 rm(list = ls()[!ls() %in% c("rawdata_list","rawfighter_list")])
 
+#remove entrys that are citations
+citations <- str_which(rawdata_list, "[:space:]said.\n")
+for (i in citations){
+  rawdata_list[[i]] <- NA
+  rawfighter_list[[i]] <- NA
+}
+
+
 #HOW TO CLEAN THE STRING DATA?
 #[1] extract "http://..." strings
 tour_urls <- lapply(rawdata_list, FUN = function(x) str_extract_all(x, "http\\S+\\s*"))
@@ -78,7 +86,7 @@ tour_person[[6]][[1]]
 #-- zwischen 'title\"' und LEERZEICHEN: Fighter Name
 tour_fighter <- lapply(tour_results, 
                              function(x) lapply(x,
-                                                function(y) str_extract_all(y, "title(.*?)[:space:]")))
+                                                function(y) str_extract_all(y, "title(.*?)[:space:]{3}")))
 sample(tour_fighter)[1]
 tour_fighter <- lapply(tour_fighter, 
                        function(x) lapply(x,
@@ -86,6 +94,9 @@ tour_fighter <- lapply(tour_fighter,
 tour_fighter <- lapply(tour_fighter, 
                        function(x) lapply(x,
                                           function(y) str_replace_all(y, '([:punct:]|=)',"")))
+tour_fighter <- lapply(tour_fighter, 
+                       function(x) lapply(x,
+                                          function(y) str_replace_all(y, '[:space:]{3}',"+")))
 tour_fighter[[6]][[1]]
 
 #[3] extract "(...)" strings
@@ -121,33 +132,84 @@ part <- unlist(tour_participants)
 plac <- unlist(tour_place)
 urls <- unlist(tour_urls)
 pers <- unlist(tour_person)
-xxx <- data.frame(A=pers,B=figh,C=plac)
+basics <- data.frame(A=pers,B=figh,C=plac)
 megalist <- list(tour_names, tour_participants, tour_urls, 
                  tour_person, tour_fighter, tour_place)
-ultradat <- data.frame()
-for (i in 1:length(tour_names)) {
-  ultradat[i,1] <- as.character(megalist[[1]][[i]])
-  ultradat[i,2] <- as.character(megalist[[2]][[i]])
-  ultradat[i,3] <- as.character(megalist[[3]][[i]])
-  ultradat[i,4] <- as.character(megalist[[4]][[i]])
-  ultradat[i,5] <- as.character(megalist[[5]][[i]])
-  ultradat[i,6] <- as.character(megalist[[6]][[i]])
+
+# make "basics" useable:
+split_into_multiple <- function(column, pattern = ", ", into_prefix){
+  cols <- str_split_fixed(column, pattern, n = Inf)
+  # Sub out the ""'s returned by filling the matrix to the right, with NAs which are useful
+  cols[which(cols == "")] <- NA
+  cols <- as.tibble(cols)
+  # name the 'cols' tibble as 'into_prefix_1', 'into_prefix_2', ..., 'into_prefix_m' 
+  # where m = # columns of 'cols'
+  m <- dim(cols)[2]
+  
+  names(cols) <- paste(into_prefix, 1:m, sep = "_")
+  return(cols)
 }
-names(ultradat) <- c("tour","num_par","url","player","fighter","place")
-# make NAs
-ultradat <- ultradat %>%
-  naniar::replace_with_na(replace = list(tour = c("character(0)", "list()","list(character(0))"),
-                                         num_par = c("character(0)", "list()","list(character(0))"),
-                                         url = c("character(0)", "list()","list(character(0))"),
-                                         player = c("character(0)", "list()","list(character(0))"),
-                                         fighter = c("character(0)", "list()","list(character(0))"),
-                                         place = c("character(0)", "list()","list(character(0))")))
-# Delete all complete NA lines
-ultradat <- ultradat[rowSums( is.na(ultradat) ) <=1, ]
-#make two datasets:
-#1) single tournaments
+basics <- basics[-c(1:8),] # erste 8 Lines löschen weil: Muster
+basics2 <- basics %>% 
+  bind_cols(split_into_multiple(.$B, "\\+ ", "fighter")) %>% 
+  # selecting those that start with 'type_' will remove the original 'type' column
+  select(c("A","C"), starts_with("fighter_"))
+basics3 <- basics2 %>% 
+  gather(key, fighter, -c(A,C), na.rm = T)
+names(basics3) <- c("player","placement","key","fighter")
+basics3$fighter <- str_replace(basics3$fighter, 
+            pattern = "^c", #pattern = a leading small "c"
+            replacement = "")
+basics3$fighter <- str_replace(basics3$fighter, 
+                               pattern = "\\+$", #pattern = a "+" at the end
+                               replacement = "")
 
-#2) mutliple tournaments
+#Corrections:
+basics3$fighter[basics3$fighter=="Rosalina amp Luma"] <- "Rosalina & Luma"
+basics3$fighter[basics3$fighter=="Alph"] <- "Olimar"
+basics3$fighter[basics3$fighter=="Banjo amp Kazooie"] <- "Banjo & Kazooie"
+basics3$fighter[basics3$fighter=="Mr Game amp Watch"] <- "Mr Game & Watch"
+basics3$fighter[basics3$fighter=="Happy Sheep"] <- NA
+basics3$fighter[basics3$fighter=="Ludwig"] <- "Bowser Jr"
+basics3$fighter[basics3$fighter=="Morton"] <- "Bowser Jr"
+basics3$fighter[basics3$fighter=="Larry"] <- "Bowser Jr"
+basics3$fighter[basics3$fighter=="Lemmy"] <- "Bowser Jr"
+basics3$fighter[basics3$fighter=="Iggy"] <- "Bowser Jr"
+basics3$fighter[basics3$fighter=="Wendy"] <- "Bowser Jr"
+basics3$fighter[basics3$fighter=="Bayonetta Alt"] <- "Bayonetta"
+basics3$fighter[basics3$fighter=="Pokemon Trainer Female"] <- "Pokemon Trainer"
+basics3$fighter[basics3$fighter=="Villager Female"] <- "Villager"
+basics3$fighter[basics3$fighter=="Corrin Female"] <- "Corrin"
+basics3$fighter[basics3$fighter=="Inkling Boy"] <- "Inkling"
+basics3$fighter[basics3$fighter=="haracter0"] <- NA
+basics3$fighter[basics3$fighter=="Wii Fit Trainer Male"] <- "Wii Fit Trainer"
+basics3$fighter[basics3$fighter=="Substitute"] <- NA
+basics3$fighter[basics3$fighter=="Mii Fighters"] <- NA
 
-#read in fighter names
-fighter <- read.table("fighter_names.csv")
+#sort out NA
+basics3 <- basics3[is.na(basics3$fighter)==F,]
+
+
+# how often does eat character get mentioned?
+n_fighter <- basics3 %>%
+  group_by(fighter) %>%
+  summarise(count = n()) %>%
+  arrange(count)
+n_fighter$fighter <- factor(n_fighter$fighter, levels = n_fighter$fighter[order(n_fighter$count)])
+n_fighter %>%
+  ggplot(aes(y=fighter, x=count)) +
+  geom_point()
+
+n_fighter2 <- basics3 %>%
+  group_by(fighter, placement) %>%
+  summarise(count = n()) %>%
+  arrange(count)
+n_fighter2$placement <- as.numeric(n_fighter2$placement)
+n_fighter2 <- n_fighter2[n_fighter2$placement<4,]
+n_fighter2 %>%
+  ggplot(aes(y=fighter, x=count)) +
+  facet_wrap(~placement) +
+  geom_point()
+
+
+
