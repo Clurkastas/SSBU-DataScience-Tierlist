@@ -403,6 +403,49 @@ summary(data_long)
 
 #Include Patch Data!
 
+patch_url <- "https://www.ssbwiki.com/List_of_updates_%28SSBU%29"
+patch_nr <- html_nodes(read_html(patch_url), "h3") 
+patch_nr <- patch_nr[2:(length(patch_nr)-6)]
+patches <- map(patch_nr, ~xml_attrs(xml_child(.x,1)))
+patches <- map_chr(patches, ~.x["id"])
 
-today <- Sys.Date()
+patch_date <- html_nodes(read_html(patch_url), "p") 
+patch_date <- html_text(patch_date)
+patch_date <- patch_date[3:length(patch_date)]
+
+patch_dat <- as.data.frame(cbind(patches, patch_date))
+names(patch_dat) <- c("patch","date")
+patch_dat$date <- str_replace_all(patch_dat$date,"This update was released ","")
+patch_dat$date <- str_replace_all(patch_dat$date,"\\(.*","") #delete everything after a bracket
+patch_dat$date <- str_replace_all(patch_dat$date,"at.*","") #delete everything after "at"
+patch_dat$date <- lubridate::mdy(patch_dat$date)
+today <- lubridate::ymd(Sys.Date())
+
+v_inter <- lubridate::interval("2017-01-01","2017-01-05")
+for (i in 1:length(patch_dat$date)){
+  inter <- lubridate::interval(patch_dat$date[i], patch_dat$date[i+1])
+  v_inter <- c(v_inter, inter)
+}
+
+patch_dat <- rbind(patch_dat, c("today",as.character(today)))
+v_inter <- c(v_inter[2:length(v_inter)],interval(patch_dat$date[length(patch_dat$date)],today))
+
+fff <- list(patch_dat, v_inter)
+
+library(lubridate)
+data_long$patch <- as.character("newest")
+
+str(fff)
+
+fff[[1]][["patch"]]
+fff[[1]][["date"]]
+fff[[2]]
+patch <- as.character(patch_dat$patch)
+str(patch)
+for (i in 1:length(patch)){
+  data_long$patch[data_long$entry_date %within% v_inter[i]]  <- patch[i]
+}
+newest_patch <- patch[(length(patch)-1)]
+data_long$patch[data_long$patch=="newest"] <- newest_patch
+
 write.csv(data_long, paste0("smashboards_long",today,".csv"))
