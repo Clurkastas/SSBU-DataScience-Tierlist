@@ -1,10 +1,10 @@
 rm(list=ls())
 
-library(tidyverse)
 library(data.table) #fread()
 library(rvest) #scraping web pages
 library(stringr)
 library(naniar)
+library(tidyverse)
 
 #To stay legally clean: First check the robot.txt
 
@@ -31,6 +31,7 @@ url_smashboards <- "https://smashboards.com/threads/ssbu-tournament-results.4648
 urls_smashboards <- lapply(pages_num, function(x) paste0(url_smashboards,x))
 web_list <- lapply(urls_smashboards, function(x) read_html(x))
 ## get data from htmls and then unlist the list of multiple vectors into one vector and turn it into a list again
+datedata_list <- lapply(web_list, function(x) html_nodes(x, css = ".message-attribution-main .u-dt"))
 rawdata_list <- lapply(web_list, function(x) html_nodes(x, css = ".bbWrapper"))
 rawfighter_list <- lapply(rawdata_list,
                           function(x) lapply(x,
@@ -38,10 +39,11 @@ rawfighter_list <- lapply(rawdata_list,
 rawdata_list <- lapply(rawdata_list, function(x) html_text(x))
 rawdata_list <- as.list(unlist(rawdata_list))
 rawfighter_list <- as.list(unlist(rawfighter_list))
-
+datedata_list <- lapply(datedata_list, function(x) html_text(x))
+datedata_list <- as.list(unlist(datedata_list))
 
 #remove everything except unnecessary data from workspace
-rm(list = ls()[!ls() %in% c("rawdata_list","rawfighter_list")])
+rm(list = ls()[!ls() %in% c("rawdata_list","rawfighter_list","datedata_list")])
 
 #remove entrys that are citations
 citations <- str_which(rawdata_list, "[:space:]said.\n")
@@ -135,6 +137,8 @@ pers <- unlist(tour_person)
 basics <- data.frame(A=pers,B=figh,C=plac)
 megalist <- list(tour_names, tour_participants, tour_urls, 
                  tour_person, tour_fighter, tour_place)
+names(megalist) <- c("names", "participants", "urls", 
+                     "persons", "fighters", "placements")
 
 # make "basics" useable:
 split_into_multiple <- function(column, pattern = ", ", into_prefix){
@@ -168,7 +172,7 @@ basics3$fighter <- str_replace(basics3$fighter,
 basics3$fighter[basics3$fighter=="Rosalina amp Luma"] <- "Rosalina & Luma"
 basics3$fighter[basics3$fighter=="Alph"] <- "Olimar"
 basics3$fighter[basics3$fighter=="Banjo amp Kazooie"] <- "Banjo & Kazooie"
-basics3$fighter[basics3$fighter=="Mr Game amp Watch"] <- "Mr Game & Watch"
+basics3$fighter[basics3$fighter=="Mr Game amp Watch"] <- "Mr. Game & Watch"
 basics3$fighter[basics3$fighter=="Happy Sheep"] <- NA
 basics3$fighter[basics3$fighter=="Ludwig"] <- "Bowser Jr"
 basics3$fighter[basics3$fighter=="Morton"] <- "Bowser Jr"
@@ -179,37 +183,226 @@ basics3$fighter[basics3$fighter=="Wendy"] <- "Bowser Jr"
 basics3$fighter[basics3$fighter=="Bayonetta Alt"] <- "Bayonetta"
 basics3$fighter[basics3$fighter=="Pokemon Trainer Female"] <- "Pokemon Trainer"
 basics3$fighter[basics3$fighter=="Villager Female"] <- "Villager"
+basics3$fighter[basics3$fighter=="Robin Female"] <- "Robin"
 basics3$fighter[basics3$fighter=="Corrin Female"] <- "Corrin"
 basics3$fighter[basics3$fighter=="Inkling Boy"] <- "Inkling"
 basics3$fighter[basics3$fighter=="haracter0"] <- NA
 basics3$fighter[basics3$fighter=="Wii Fit Trainer Male"] <- "Wii Fit Trainer"
 basics3$fighter[basics3$fighter=="Substitute"] <- NA
 basics3$fighter[basics3$fighter=="Mii Fighters"] <- NA
+basics3$fighter[basics3$fighter=="Dragon Quest Hero"] <- "Hero"
+basics3$fighter[basics3$fighter=="ROB"] <- "R.O.B."
+basics3$fighter[basics3$fighter=="Richter Belmont"] <- "Richter"
+basics3$fighter[basics3$fighter=="Simon Belmont"] <- "Simon"
+basics3$fighter[basics3$fighter=="PacMan"] <- "Pac-Man"
+basics3$fighter[basics3$fighter=="King K Rool"] <- "King K. Rool"
+basics3$fighter[basics3$fighter=="Dr Mario"] <- "Dr. Mario"
+basics3$fighter[basics3$fighter=="Bowser Jr"] <- "Bowser Jr."
 
 #sort out NA
 basics3 <- basics3[is.na(basics3$fighter)==F,]
 
-
-# how often does eat character get mentioned?
-n_fighter <- basics3 %>%
-  group_by(fighter) %>%
-  summarise(count = n()) %>%
-  arrange(count)
-n_fighter$fighter <- factor(n_fighter$fighter, levels = n_fighter$fighter[order(n_fighter$count)])
-n_fighter %>%
-  ggplot(aes(y=fighter, x=count)) +
-  geom_point()
-
-n_fighter2 <- basics3 %>%
-  group_by(fighter, placement) %>%
-  summarise(count = n()) %>%
-  arrange(count)
-n_fighter2$placement <- as.numeric(n_fighter2$placement)
-n_fighter2 <- n_fighter2[n_fighter2$placement<4,]
-n_fighter2 %>%
-  ggplot(aes(y=fighter, x=count)) +
-  facet_wrap(~placement) +
-  geom_point()
+write.csv(basics3, "smashboards_tournaments1.csv")
 
 
+# make functions to map on each "tour_..."-list
+minusEbene <- as_mapper(~.x[[1]])
+megalist2 <- map(megalist, ~map(.x, minusEbene))
+megalist2$participants <- map(megalist2$participant, ~as.character(.x))
+megalist2$fighters <- map(megalist2$fighters, ~str_replace_all(.x,"^c",""))
+megalist2$fighters <- map(megalist2$fighters, ~str_replace_all(.x,"\\+",""))
+#das ist gut!
 
+#welche listen sind gleich lang (je elemente)
+testx <- map_df(megalist2, ~map_dbl(.x, length))
+summary(ifelse(testx$fighters==testx$persons,T,F)) #exakt gleich
+summary(ifelse(testx$fighters==testx$placements,T,F)) #exakt gleich
+summary(ifelse(testx$urls==testx$names,T,F)) #größtenteils gleich..
+
+#wie bekomme ich daraus jetzt Datensätze die alle gleich lang sind?
+matchit_Df <- map(megalist2, ~map_df(.x, as.character))
+
+matchit_Df <- pmap(megalist2[4:6], ~rbind(..1,..2,..3))
+matchit_Df <- map(matchit_Df,~t(data.frame(matrix(unlist(.x), nrow=3))))
+matchit_Df2 <- map2(matchit_Df,1:length(matchit_Df), ~cbind(.x,.y)) #for: entry_nr
+matchit_Df2 <- map(matchit_Df2, ~(data.frame(matrix(unlist(.x), ncol=4))))
+matchit_Df3 <- map_df(matchit_Df2, ~.x)
+names(matchit_Df3) <- c("player","characters","placement","entry_nr")
+
+### Andere Daten aufbereiten :)
+#tournament names 
+matchit_names2 <- map2(megalist2[[1]],1:length(megalist2[[1]]), ~cbind(.x,.y)) #for: entry_nr
+matchit_names2[[40]]
+matchit_names3 <- map(matchit_names2, ~(data.frame(matrix(unlist(.x), ncol=2))))
+matchit_names4 <- map_df(matchit_names3, ~.x)
+names(matchit_names4) <- c("tournament","entry_nr")
+#tournament names 
+matchit_participant2 <- map2(megalist2[[2]],1:length(megalist2[[2]]), ~cbind(.x,.y)) #for: entry_nr
+matchit_participant2[[40]]
+matchit_participant3 <- map(matchit_participant2, ~(data.frame(matrix(unlist(.x), ncol=2))))
+matchit_participant4 <- map_df(matchit_participant3, ~.x)
+names(matchit_participant4) <- c("participants","entry_nr")
+#tournament names 
+matchit_url2 <- map2(megalist2[[3]],1:length(megalist2[[3]]), ~cbind(.x,.y)) #for: entry_nr
+matchit_url2[[40]]
+matchit_url3 <- map(matchit_url2, ~(data.frame(matrix(unlist(.x), ncol=2))))
+matchit_url4 <- map_df(matchit_url3, ~.x)
+names(matchit_url4) <- c("url","entry_nr")
+
+megalist3 <- list(matchit_Df3, matchit_names4, matchit_participant4, matchit_url4)
+
+#remove everything except unnecessary data from workspace
+rm(list = ls()[!ls() %in% c("megalist3","datedata_list")])
+
+# Fighter-Data
+d1 <- as.data.frame(megalist3[1])
+#already clean enough
+
+# tournament names
+d2 <- as.data.frame(megalist3[2])
+vec_temp <- (d2[,1]==d2[,2])#
+d2 <- d2[!vec_temp,] 
+d2 <- d2[!is.na(d2[,1]),] #not keep NA
+
+# participants nr
+d3 <- as.data.frame(megalist3[3])
+vec_temp <- str_detect(d3[,1],"character")
+vec_temp[is.na(vec_temp)] <- TRUE
+d3 <- d3[!vec_temp,] #only keep entries with information
+
+# url
+d4 <- as.data.frame(megalist3[4])
+vec_temp <- str_detect(d4[,1],"^http")
+vec_temp[is.na(vec_temp)] <- TRUE
+d4 <- d4[vec_temp,] #only keep entries with information (with "http..." at the beginning)
+d4 <- d4[!is.na(d4[,1]),] #not keep NA
+
+#date
+d5 <- unlist(datedata_list)
+d5 <- cbind(d5, as.character(1:length(d5)))
+d5 <- as.data.frame(d5)
+names(d5) <- c("entry_date","entry_nr")
+
+
+# now: run sth on them
+
+entry_id <- function(dat, entry_nr=entry_nr){
+  dat %>% group_by(entry_nr) %>% mutate(entry_id = paste0(entry_nr,"-",row_number())) %>% ungroup()
+}
+d2 <- d2 %>% entry_id()
+d3 <- d3 %>% entry_id()
+d4 <- d4 %>% entry_id()
+d5 <- d5 %>% entry_id()
+
+# für d1 muss ich nun auch diese "entry_id" erstellen
+# das wird aber etwas schwieriger, weil die subgruppierung anders funktioniert:
+# jedesmal wenn die Platzierung neu bei 1 anfängt
+d1$first <- d1$placement==1
+d1$seperatelistings <- cumsum(d1$first)
+
+d1_help <- d1 %>% 
+  group_by(entry_nr, seperatelistings) %>% 
+  summarise(entry_id = "1")
+d1_help <- d1_help %>% 
+  group_by(entry_nr) %>%
+  mutate(entry_id = paste0(entry_nr,"-",row_number())) %>%
+  ungroup()
+
+d1 <- left_join(d1,d1_help, by=c("entry_nr","seperatelistings"))
+
+d5$entry_nr <- as.character(1:length(d5$entry_nr))
+# now all the dataframes are ready to be joined together.
+
+dat <- d1 %>% 
+  full_join(d5) %>% #this one by nr because date is per total entry
+  full_join(d2, by="entry_id") %>%
+  full_join(d3, by="entry_id") %>%
+  full_join(d4, by="entry_id") 
+
+# everything merged as good as it can be.
+#clean the rest
+dat <- dat[,c("entry_nr.x",
+              "entry_id",
+              "entry_date",
+              "tournament",
+              "url",
+              "player",
+              "characters",
+              "placement")] #keep useful columns
+
+dat <- dat[dat$entry_id!="1-1",] #delete first entry, it's a pattern from the admin to use
+dat$entry_date <- lubridate::mdy(dat$entry_date)
+
+# unnütz entfernen 2:
+dat <- dat[is.na(dat$placement)==F,]
+
+#some dates are not transfered (only for -1 and not -2* classes)
+
+dat_help <- dat %>% group_by(entry_nr.x, entry_date) %>% summarise()
+dat_help <- dat_help[is.na(dat_help$entry_date)==F,]
+dat <- full_join(dat[,c(1:2,4:8)], dat_help)
+names(dat) <- c("entry_nr", "entry_id", "tournament", 
+  "url", "player", "characters", "placement", "entry_date")
+dat <- dat[,c("entry_nr", "entry_date", "entry_id", "tournament", 
+              "url", "player", "characters", "placement")]
+
+dat$characters <- str_replace_all(dat$characters, "Rosalina amp Luma","Rosalina & Luma")
+dat$characters <- str_replace_all(dat$characters, "Alph", "Olimar")
+dat$characters <- str_replace_all(dat$characters, "Banjo amp Kazooie", "Banjo & Kazooie")
+dat$characters <- str_replace_all(dat$characters, "Mr Game amp Watch", "Mr. Game & Watch")
+dat$characters <- str_replace_all(dat$characters, "Happy Sheep", "")
+dat$characters <- str_replace_all(dat$characters, "Ludwig", "Bowser Jr")
+dat$characters <- str_replace_all(dat$characters, "Morton", "Bowser Jr")
+dat$characters <- str_replace_all(dat$characters, "Larry", "Bowser Jr")
+dat$characters <- str_replace_all(dat$characters, "Lemmy", "Bowser Jr")
+dat$characters <- str_replace_all(dat$characters, "Iggy", "Bowser Jr")
+dat$characters <- str_replace_all(dat$characters, "Wendy", "Bowser Jr")
+dat$characters <- str_replace_all(dat$characters, "Bayonetta Alt", "Bayonetta")
+dat$characters <- str_replace_all(dat$characters, "Pokemon Trainer Female", "Pokemon Trainer")
+dat$characters <- str_replace_all(dat$characters, "Villager Female", "Villager")
+dat$characters <- str_replace_all(dat$characters, "Robin Female", "Robin")
+dat$characters <- str_replace_all(dat$characters, "Corrin Female", "Corrin")
+dat$characters <- str_replace_all(dat$characters, "Inkling Boy", "Inkling")
+dat$characters <- str_replace_all(dat$characters, "haracter0", "")
+dat$characters <- str_replace_all(dat$characters, "Wii Fit Trainer Male", "Wii Fit Trainer")
+dat$characters <- str_replace_all(dat$characters, "Substitute", "")
+dat$characters <- str_replace_all(dat$characters, "Mii Fighters", "")
+dat$characters <- str_replace_all(dat$characters, "Dragon Quest Hero", "Hero")
+dat$characters <- str_replace_all(dat$characters, "ROB", "R.O.B.")
+dat$characters <- str_replace_all(dat$characters, "Richter Belmont", "Richter")
+dat$characters <- str_replace_all(dat$characters, "Simon Belmont", "Simon")
+dat$characters <- str_replace_all(dat$characters, "PacMan", "Pac-Man")
+dat$characters <- str_replace_all(dat$characters, "King K Rool", "King K. Rool")
+dat$characters <- str_replace_all(dat$characters, "Dr Mario", "Dr. Mario")
+dat$characters <- str_replace_all(dat$characters, "Bowser Jr", "Bowser Jr.")
+
+#more details on fighters!
+char_names <- data.table::fread("fighter_names.csv")[,2] %>% unlist()
+char_names[char_names=="Pokémon Trainer"] <- "Pokemon Trainer"
+
+x<-length(dat)
+dat <- cbind(dat,data.frame(matrix(0, ncol=length(char_names))))
+for(i in char_names){
+  print(i)
+  x <- x+1
+  dat[,x][str_detect(dat$characters,i)] <- i
+  dat$characters <- str_replace_all(dat$characters, i, "")
+}
+names(dat) <- c("entry_nr", "entry_date", "entry_id", "tournament", 
+                                          "url", "player", "characters", "placement",char_names)
+
+#almost there
+dat$nr <- as.factor(1:length(dat$entry_nr))
+dat$entry_nr <- as.numeric(dat$entry_nr)
+dat$placement <- as.numeric(dat$placement)
+data_long <- gather(dat, nr, character, `Dr. Mario`:`Banjo & Kazooie`, factor_key=TRUE)
+data_long <- data_long[data_long$character!=0,c(1:6,8,10)]
+data_long <- data_long[data_long$placement!=0,]
+
+summary(data_long)
+
+#Include Patch Data!
+
+
+today <- Sys.Date()
+write.csv(data_long, paste0("smashboards_long",today,".csv"))

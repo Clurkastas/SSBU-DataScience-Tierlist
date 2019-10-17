@@ -1,10 +1,12 @@
 #generate vector with fighter names
 
 # Writing Down Original Fighters Names:
+#sortierung teilweise wegen zuerst löschung:
+#"bsp: Dr. Mario muss vor Mario ausglesen werden"
 
-fighter <- c("Mario","Luigi","Peach","Bowser","Dr. Mario",
+fighter <- c("Dr. Mario","Mario","Luigi","Peach",
              "Rosalina & Luma", 
-             "Bowser Jr.","Roy","Bowser", "Yoshi",
+             "Bowser Jr.", "Bowser", "Yoshi",
              "Donkey Kong","Diddy Kong","Zelda","Ganondorf",
              "Sheik","Young Link", "Toon Link", "Link",
              "Dark Samus", "Zero Suit Samus", "Samus", "Kirby","Meta Knight",
